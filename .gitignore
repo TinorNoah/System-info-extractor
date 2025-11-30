@@ -1,0 +1,4 @@
+system_report_*.txt
+system_info_*.json
+*.log
+.DS_Store
