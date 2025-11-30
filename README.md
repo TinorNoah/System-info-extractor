@@ -17,8 +17,28 @@ This script provides an interactive menu to view various system details:
 9.  **Package Updates**: Check for available updates (supports dnf, apt, pacman).
 10. **Generate Full Report**: Save all information to a text file.
 11. **Export to JSON**: Export key metrics to a JSON file for programmatic use.
+12. **Live Dashboard (TUI)**: A real-time, visual dashboard with CPU/RAM/Disk bars and network stats.
+13. **Tech Glossary**: A built-in cheat sheet explaining common terms (GiB vs GB, x64, PID, etc.).
 
-## Usage
+## Visual & Usability Improvements
+-   **Dynamic Colors**: Dashboard bars change color (Green/Yellow/Red) based on usage.
+-   **Readable Processes**: Process lists are formatted with aligned columns and a clear legend.
+-   **Zero Dependencies**: All new features run on standard Bash.
+
+## Pure Bash TUI Dashboard (New!)
+We now offer a modern, visual Terminal User Interface (TUI) built entirely in **Bash**. No dependencies required!
+
+### Usage
+1.  Run the main script: `./gather_sys_info.sh`
+2.  Select option **12**.
+3.  Or run directly: `./dashboard.sh`
+
+## Features
+-   **Real-time Graphs**: Visual bars for CPU, RAM, and Disk usage.
+-   **Zero Dependencies**: Works on any standard Linux system with Bash.
+-   **Fast**: Instant startup and low resource usage.
+
+## Installation
 
 1.  **Download the script**:
     ```bash
@@ -28,7 +48,7 @@ This script provides an interactive menu to view various system details:
 
 2.  **Make it executable**:
     ```bash
-    chmod +x gather_sys_info.sh
+    chmod +x gather_sys_info.sh dashboard.sh
     ```
 
 3.  **Run the script**:

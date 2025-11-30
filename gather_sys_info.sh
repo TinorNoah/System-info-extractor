@@ -62,7 +62,14 @@ cpu_memory_info() {
     free -h
     echo ""
     echo -e "${BOLD}Top 5 Memory Consuming Processes:${NC}"
-    ps aux --sort=-%mem | head -n 6
+    # Formatted ps output: User, PID, CPU%, Mem%, Start Time, Command (truncated)
+    ps -eo user:12,pid:8,%cpu:6,%mem:6,start:10,comm:25 --sort=-%mem | head -n 6
+    
+    echo ""
+    echo -e "${CYAN}${BOLD}Legend:${NC}"
+    echo -e "  ${BOLD}USER${NC}: Process Owner   ${BOLD}PID${NC}: Process ID"
+    echo -e "  ${BOLD}%CPU${NC}: CPU Usage %     ${BOLD}%MEM${NC}: RAM Usage %"
+    echo -e "  ${BOLD}START${NC}: Start Time     ${BOLD}COMMAND${NC}: Process Name"
 }
 # 3. Storage & Filesystems
 storage_info() {
@@ -198,6 +205,39 @@ EOF
     pause
 }
 
+# 11. Tech Glossary
+glossary_info() {
+    echo -e "${GREEN}${BOLD}--- Tech Glossary & Cheat Sheet ---${NC}"
+    echo ""
+    
+    echo -e "${CYAN}${BOLD}1. Storage & Memory${NC}"
+    echo -e "   - ${BOLD}GB vs GiB${NC}: GB=1000^3 (Marketing), GiB=1024^3 (Real Size). 500GB = 465GiB."
+    echo -e "   - ${BOLD}RAM${NC}: Fast, temporary workspace. Wiped on restart."
+    echo -e "   - ${BOLD}Swap${NC}: Emergency RAM on your hard drive. Slow, prevents crashes."
+    echo -e "   - ${BOLD}Filesystem${NC}: How data is organized (e.g., ext4, ntfs)."
+    echo ""
+
+    echo -e "${CYAN}${BOLD}2. CPU & Architecture${NC}"
+    echo -e "   - ${BOLD}x64 / amd64${NC}: Modern 64-bit chips. Standard for desktops/laptops."
+    echo -e "   - ${BOLD}ARM / aarch64${NC}: Power-efficient chips (Phones, Macs, Raspberry Pi)."
+    echo -e "   - ${BOLD}Load Avg${NC}: CPU busyness. 1.0 = 1 core 100% busy."
+    echo ""
+
+    echo -e "${CYAN}${BOLD}3. Network Lingo${NC}"
+    echo -e "   - ${BOLD}IP Address${NC}: Your computer's ID card on the network."
+    echo -e "   - ${BOLD}DNS${NC}: Internet phonebook (google.com -> 142.250...)."
+    echo -e "   - ${BOLD}TCP vs UDP${NC}: TCP = Receipt required (Web). UDP = Throw it (Gaming)."
+    echo ""
+
+    echo -e "${CYAN}${BOLD}4. System Jargon${NC}"
+    echo -e "   - ${BOLD}PID${NC}: Process ID. Unique number for every running program."
+    echo -e "   - ${BOLD}Kernel${NC}: The core of the OS. Controls hardware."
+    echo -e "   - ${BOLD}Daemon${NC}: A background service (invisible worker)."
+    echo -e "   - ${BOLD}Root${NC}: The Superuser/Administrator (God mode)."
+    echo -e "   - ${BOLD}Distro${NC}: Flavor of Linux (Ubuntu, Fedora, Arch, etc.)."
+    echo ""
+}
+
 # Generate Full Report
 generate_report() {
     REPORT_FILE="system_report_$(date +%Y%m%d_%H%M%S).txt"
@@ -265,9 +305,11 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
         echo "9. Check Package Updates"
         echo "10. Generate Full Report (Save to file)"
         echo "11. Export to JSON"
+        echo "12. Launch Live Dashboard (TUI)"
+        echo "13. Tech Glossary (What do these terms mean?)"
         echo "0. Exit"
         echo ""
-        read -p "Enter your choice [0-11]: " choice
+        read -p "Enter your choice [0-13]: " choice
         case $choice in
             1)
                 clear
@@ -319,6 +361,14 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
                 ;;
             11)
                 generate_json
+                ;;
+            12)
+                ./dashboard.sh
+                ;;
+            13)
+                clear
+                glossary_info
+                pause
                 ;;
             0)
                 echo "Exiting..."
