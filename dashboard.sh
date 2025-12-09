@@ -90,6 +90,11 @@ get_mem_usage() {
     free | grep Mem | awk '{printf "%.1f", $3/$2 * 100}'
 }
 
+# Function to get Swap usage
+get_swap_usage() {
+    free | grep Swap | awk '{if ($2>0) printf "%.1f", $3/$2 * 100; else print "0"}'
+}
+
 # Function to get Disk usage (Root)
 get_disk_usage() {
     df / | tail -1 | awk '{print $5}' | tr -d '%'
@@ -121,9 +126,22 @@ get_load_avg() {
     awk '{print $1, $2, $3}' /proc/loadavg
 }
 
-# Function to get Top Process by CPU
-get_top_process() {
-    ps -eo comm,%cpu --sort=-%cpu | head -n 2 | tail -n 1 | awk '{print $1 " (" $2 "%)"}'
+# Function to get Top Processes (Top 5)
+get_top_processes() {
+    # Comm, CPU, MEM. Sort by CPU desc. Take top 5.
+    ps -eo comm:15,%cpu,%mem --sort=-%cpu | head -n 6 | tail -n 5 | awk '{printf "%-15s CPU:%s%% MEM:%s%%", $1, $2, $3}'
+}
+
+# Function to get Battery Info
+get_battery_info() {
+    # Check standard paths
+    if [ -d /sys/class/power_supply/BAT0 ]; then
+        cat /sys/class/power_supply/BAT0/capacity
+    elif [ -d /sys/class/power_supply/BAT1 ]; then
+        cat /sys/class/power_supply/BAT1/capacity
+    else
+        echo "N/A"
+    fi
 }
 
 # Main Loop
@@ -132,42 +150,67 @@ while true; do
     tput cup 0 0
     echo "${BOLD}${WHITE}${BLUE}  SYSTEM DASHBOARD  ${RESET}"
     echo "${CYAN}Hostname:${RESET} $(hostname) ${DIM}|${RESET} ${CYAN}OS:${RESET} $(uname -o) ${DIM}|${RESET} ${CYAN}Kernel:${RESET} $(uname -r)"
-    echo "${CYAN}Uptime:${RESET}   $(uptime -p) ${DIM}|${RESET} ${CYAN}Clock:${RESET} $(date +'%H:%M:%S')"
-    echo "${CYAN}Load Avg:${RESET} $(get_load_avg)"
+    echo "${CYAN}Uptime:${RESET}   $(uptime -p)"
+    echo "${CYAN}Clock:${RESET}    $(date +'%H:%M:%S') ${DIM}|${RESET} ${CYAN}Load Avg:${RESET} $(get_load_avg)"
     echo "${DIM}------------------------------------------------------------${RESET}"
 
     # CPU
     cpu_usage=$(get_cpu_usage)
     tput cup 6 0
-    printf "%-10s" "${BOLD}CPU:${RESET}"
+    printf "%-12s" "${BOLD}CPU:${RESET}"
     draw_bar "$cpu_usage" 40
 
     # Memory
     mem_usage=$(get_mem_usage)
     tput cup 8 0
-    printf "%-10s" "${BOLD}RAM:${RESET}"
+    printf "%-12s" "${BOLD}RAM:${RESET}"
     draw_bar "$mem_usage" 40
+
+    # Swap
+    swap_usage=$(get_swap_usage)
+    tput cup 10 0
+    printf "%-12s" "${BOLD}Swap:${RESET}"
+    draw_bar "$swap_usage" 40
 
     # Disk
     disk_usage=$(get_disk_usage)
-    tput cup 10 0
-    printf "%-10s" "${BOLD}Disk (/):${RESET}"
+    tput cup 12 0
+    printf "%-12s" "${BOLD}Disk (/):${RESET}"
     draw_bar "$disk_usage" 40
 
     # Network
     read rx_kb tx_kb <<< $(get_net_usage)
-    tput cup 12 0
-    printf "%-10s" "${BOLD}Network:${RESET}"
+    tput cup 14 0
+    printf "%-12s" "${BOLD}Network:${RESET}"
     echo -n "RX: ${GREEN}${rx_kb} KB/s${RESET} ${DIM}|${RESET} TX: ${RED}${tx_kb} KB/s${RESET}      "
 
-    # Top Process
-    top_proc=$(get_top_process)
-    tput cup 14 0
-    printf "%-10s" "${BOLD}Top Proc:${RESET}"
-    echo -n "${MAGENTA}${top_proc}${RESET}      "
+    # Battery
+    bat_cap=$(get_battery_info)
+    tput cup 16 0
+    printf "%-12s" "${BOLD}Battery:${RESET}"
+    if [ "$bat_cap" == "N/A" ]; then
+        echo -n "${DIM}N/A${RESET}"
+    else
+        # Color coding for battery
+        if [ "$bat_cap" -gt 60 ]; then
+             echo -n "${GREEN}${bat_cap}%${RESET}"
+        elif [ "$bat_cap" -gt 20 ]; then
+             echo -n "${YELLOW}${bat_cap}%${RESET}"
+        else
+             echo -n "${RED}${BOLD}${bat_cap}%${RESET}"
+        fi
+    fi
+
+    # Top Processes
+    tput cup 18 0
+    echo "${BOLD}Top Processes (CPU/MEM):${RESET}"
+    tput cup 19 0
+    get_top_processes | while read line; do
+        echo "  ${MAGENTA}${line}${RESET}"
+    done
 
     # Footer
-    tput cup 16 0
+    tput cup 25 0
     echo "${DIM}------------------------------------------------------------${RESET}"
     echo "Press ${BOLD}${RED}q${RESET} to quit."
 

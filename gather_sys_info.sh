@@ -168,6 +168,31 @@ service_info() {
 package_info() {
     echo -e "${GREEN}${BOLD}--- Available Updates ---${NC}"
     echo "Checking for updates (this might take a moment)..."
+    
+    # Check for Nobara Logic
+    if [ -f /etc/os-release ]; then
+        # Run in a subshell to avoid polluting checks
+        (
+            . /etc/os-release
+            if [[ "$ID" == "nobara" ]]; then
+                echo -e "${YELLOW}Nobara Linux detected. Using 'nobara-sync cli'...${NC}"
+                if command -v nobara-sync &> /dev/null; then
+                     nobara-sync cli
+                     exit 0
+                else
+                     echo -e "${RED}Error: 'nobara-sync' command not found.${NC}"
+                     exit 1
+                fi
+            fi
+            exit 2 # Not Nobara
+        )
+        # Check exit code of subshell
+        ret=$?
+        if [ $ret -eq 0 ]; then return; fi
+        if [ $ret -eq 1 ]; then return; fi
+        # If 2, continue to standard checks
+    fi
+
     if check_cmd dnf; then
         dnf check-update --quiet | head -n 10
     elif check_cmd apt; then
@@ -238,6 +263,71 @@ glossary_info() {
     echo ""
 }
 
+# 12. Setup Shell
+setup_shell() {
+    echo -e "${GREEN}${BOLD}--- Setup Shell (Zsh + Syntax Highlighting) ---${NC}"
+    
+    if [ ! -f /etc/os-release ]; then
+        echo -e "${RED}Error: Cannot detect OS (no /etc/os-release). Aborting.${NC}"
+        pause
+        return
+    fi
+    
+    # Source os-release to get ID
+    . /etc/os-release
+    
+    echo "Detected OS: $NAME ($ID)"
+    echo "This will install 'zsh' and 'zsh-syntax-highlighting' using your package manager."
+    echo -e "${YELLOW}Administrator privileges (sudo) may be required.${NC}"
+    echo ""
+    read -p "Do you want to proceed? (y/n): " confirm
+    if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+        echo "Aborted."
+        pause
+        return
+    fi
+    
+    echo ""
+    case "$ID" in
+        ubuntu|debian|kali|pop|linuxmint)
+            echo "Using apt..."
+            sudo apt update
+            if sudo apt install -y zsh zsh-syntax-highlighting; then
+                 echo -e "${GREEN}Installation complete!${NC}"
+            else
+                 echo -e "${RED}Installation failed.${NC}"
+            fi
+            ;;
+        fedora|rhel|centos|nobara)
+            echo "Using dnf..."
+            if sudo dnf install -y zsh zsh-syntax-highlighting; then
+                 echo -e "${GREEN}Installation complete!${NC}"
+            else
+                 echo -e "${RED}Installation failed.${NC}"
+            fi
+            ;;
+        arch|manjaro|endeavouros)
+            echo "Using pacman..."
+            if sudo pacman -S --noconfirm zsh zsh-syntax-highlighting; then
+                 echo -e "${GREEN}Installation complete!${NC}"
+            else
+                 echo -e "${RED}Installation failed.${NC}"
+            fi
+            ;;
+        *)
+            echo -e "${RED}Unsupported OS distribution: $ID${NC}"
+            echo "Please install 'zsh' and 'zsh-syntax-highlighting' manually."
+            ;;
+    esac
+    
+    # Check if zsh is installed
+    if command -v zsh &> /dev/null; then
+        echo -e "Zsh version: $(zsh --version)"
+    fi
+    
+    pause
+}
+
 # Generate Full Report
 generate_report() {
     REPORT_FILE="system_report_$(date +%Y%m%d_%H%M%S).txt"
@@ -291,93 +381,148 @@ generate_report() {
     pause
 }
 # Main Menu Loop
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+# Generic Interactive Menu
+# Arguments: title, options_array_name
+# Returns: selected index in global variable 'MENU_SELECTED_INDEX'
+interactive_menu() {
+    local title="$1"
+    local -n opts=$2
+    local selected=0
+    
+    # Internal loop for this specific menu
     while true; do
-        print_header
-        echo "1. System Overview"
-        echo "2. CPU & Memory Information"
-        echo "3. Storage & Filesystems"
-        echo "4. Hardware Devices (PCI/USB)"
-        echo "5. Network Information"
-        echo "6. Low-Level / Kernel Info"
-        echo "7. Container Information"
-        echo "8. Failed System Services"
-        echo "9. Check Package Updates"
-        echo "10. Generate Full Report (Save to file)"
-        echo "11. Export to JSON"
-        echo "12. Launch Live Dashboard (TUI)"
-        echo "13. Tech Glossary (What do these terms mean?)"
-        echo "0. Exit"
+        clear
+        echo -e "${BLUE}${BOLD}=================================================${NC}"
+        echo -e "${BLUE}${BOLD}      Interactive System Information Tool        ${NC}"
+        echo -e "${BLUE}${BOLD}=================================================${NC}"
         echo ""
-        read -p "Enter your choice [0-13]: " choice
-        case $choice in
-            1)
-                clear
-                system_overview
-                pause
-                ;;
-            2)
-                clear
-                cpu_memory_info
-                pause
-                ;;
-            3)
-                clear
-                storage_info
-                pause
-                ;;
-            4)
-                clear
-                hardware_info
-                pause
-                ;;
-            5)
-                clear
-                network_info
-                pause
-                ;;
-            6)
-                clear
-                kernel_info
-                pause
-                ;;
-            7)
-                clear
-                container_info
-                pause
-                ;;
-            8)
-                clear
-                service_info
-                pause
-                ;;
-            9)
-                clear
-                package_info
-                pause
-                ;;
-            10)
-                generate_report
-                ;;
-            11)
-                generate_json
-                ;;
-            12)
-                ./dashboard.sh
-                ;;
-            13)
-                clear
-                glossary_info
-                pause
-                ;;
-            0)
-                echo "Exiting..."
-                exit 0
-                ;;
-            *)
-                echo -e "${RED}Invalid choice. Please try again.${NC}"
-                sleep 1
-                ;;
+        echo -e "${YELLOW}${BOLD}:: $title ::${NC}"
+        echo "Use ${BOLD}Up/Down${NC} to navigate, ${BOLD}Enter${NC} to select."
+        echo ""
+
+        for i in "${!opts[@]}"; do
+            if [[ "$i" == "$selected" ]]; then
+                echo -e "${GREEN}${BOLD}> ${opts[$i]} <${NC}"
+            else
+                echo -e "  ${opts[$i]}"
+            fi
+        done
+        echo ""
+
+        # Input handling
+        read -rsn1 input
+        if [[ "$input" == $'\x1b' ]]; then
+            read -rsn2 -t 0.1 input
+            if [[ "$input" == "[A" ]]; then # Up
+                ((selected--))
+                if ((selected < 0)); then selected=$((${#opts[@]} - 1)); fi
+            elif [[ "$input" == "[B" ]]; then # Down
+                ((selected++))
+                if ((selected >= ${#opts[@]})); then selected=0; fi
+            fi
+        elif [[ "$input" == "" ]]; then # Enter
+            MENU_SELECTED_INDEX=$selected
+            return 0
+        fi
+    done
+}
+
+# --- Submenus ---
+
+submenu_hardware() {
+    local options=(
+        "System Overview"
+        "CPU & Memory Information"
+        "Storage & Filesystems"
+        "Hardware Devices (PCI/USB)"
+        "Low-Level / Kernel Info"
+        "Back to Main Menu"
+    )
+    while true; do
+        interactive_menu "Hardware & Core Info" options
+        case $MENU_SELECTED_INDEX in
+            0) clear; system_overview; pause ;;
+            1) clear; cpu_memory_info; pause ;;
+            2) clear; storage_info; pause ;;
+            3) clear; hardware_info; pause ;;
+            4) clear; kernel_info; pause ;;
+            5) return ;;
+        esac
+    done
+}
+
+submenu_network() {
+    local options=(
+        "Network Information"
+        "Container Information"
+        "Failed System Services"
+        "Back to Main Menu"
+    )
+    while true; do
+        interactive_menu "Network & Services" options
+        case $MENU_SELECTED_INDEX in
+            0) clear; network_info; pause ;;
+            1) clear; container_info; pause ;;
+            2) clear; service_info; pause ;;
+            3) return ;;
+        esac
+    done
+}
+
+submenu_tools() {
+    local options=(
+        "Check Package Updates"
+        "Setup Shell (Install Zsh + Syntax Highlighting)"
+        "Launch Live Dashboard (TUI)"
+        "Back to Main Menu"
+    )
+    while true; do
+        interactive_menu "Tools & Maintenance" options
+        case $MENU_SELECTED_INDEX in
+            0) clear; package_info; pause ;;
+            1) clear; setup_shell ;;
+            2) ./dashboard.sh ;;
+            3) return ;;
+        esac
+    done
+}
+
+submenu_reports() {
+    local options=(
+        "Generate Full Report (Save to file)"
+        "Export to JSON"
+        "Tech Glossary (What do these terms mean?)"
+        "Back to Main Menu"
+    )
+    while true; do
+        interactive_menu "Reports & Help" options
+        case $MENU_SELECTED_INDEX in
+            0) generate_report ;;
+            1) generate_json ;;
+            2) clear; glossary_info; pause ;;
+            3) return ;;
+        esac
+    done
+}
+
+# Main Menu Loop
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main_options=(
+        "Hardware & Core Info"
+        "Network & Services"
+        "Tools & Maintenance"
+        "Reports & Help"
+        "Exit"
+    )
+
+    while true; do
+        interactive_menu "Main Menu" main_options
+        case $MENU_SELECTED_INDEX in
+            0) submenu_hardware ;;
+            1) submenu_network ;;
+            2) submenu_tools ;;
+            3) submenu_reports ;;
+            4) echo "Exiting..."; exit 0 ;;
         esac
     done
 fi
